@@ -132,6 +132,42 @@ test('Typer', async () => {
   }
 })
 
+test.skip('Argo spec fixtures', async () => {
+  const OUTPUT_DIR = `/tmp/argo-spec`
+
+  const snakeCase = (str : string) =>
+    str[0].toLowerCase() +
+      str.slice(1, str.length)
+        .replace(/ID/g, "Id")
+        .replace(/C3PO/, "C3po")
+        .replace(/[A-Z]/g, (letter: string) => `_${letter.toLowerCase()}`)
+
+  for await (const dir of walk(path.dirname(testPath), true)) {
+    const suiteName = path.basename(dir);
+    const suiteDestDir = path.join(OUTPUT_DIR, suiteName)
+    await fs.promises.mkdir(suiteDestDir, { recursive: true });
+    await fs.promises.copyFile(path.join(dir, "schema.graphql"), path.join(suiteDestDir, "schema.graphql"))
+
+    for await (const test of loadTest(dir)) {
+      const destDir = path.join(suiteDestDir, snakeCase(test.name))
+      await fs.promises.mkdir(destDir, { recursive: true });
+      await fs.promises.copyFile(path.join(test.dir, `${test.name}.json`), path.join(destDir, 'data.json'))
+      await fs.promises.copyFile(path.join(test.dir, `${test.name}.graphql`), path.join(destDir, 'query.graphql'))
+
+      const typer = new Typer(test.schema, test.query)
+      const rootWireType = typer.rootWireType()
+
+      await fs.promises.writeFile(path.join(destDir, "wire.json"), JSON.stringify(rootWireType, null, 2))
+
+      const ci = new ExecutionResultCodec(test.schema, test.query)
+      const argoBytes = ci.jsToArgo(test.expected)
+      argoBytes.compact() // make sure we don't have usused space, since later we access the underlying array
+
+      await fs.promises.writeFile(path.join(destDir, "data.argo"), argoBytes.uint8array)
+    }
+  }
+})
+
 async function runEquivalence(name: string, query: DocumentNode, json: string, schema: GraphQLSchema, expected: any) {
   const ci = new ExecutionResultCodec(schema, query)
 
