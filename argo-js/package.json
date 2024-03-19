@@ -44,10 +44,14 @@
     "typescript": "5.3.3"
   },
   "dependencies": {
+    "@commander-js/extra-typings": "^11.1.0",
+    "commander": "^11.1.0",
+    "esm": "^3.2.25",
     "graphql": "^16.6.0"
   },
   "scripts": {
     "test": "jest",
-    "prepublish": "tsc"
+    "prepublish": "tsc",
+    "cli": "node -r ts-node/register/transpile-only -r esm src/cli.ts"
   }
 }
